@@ -8,7 +8,7 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "segredo123";
-const BASE_URL = process.env.BASE_URL || "https://carolzinha-gpt.onrender.com";
+const BASE_URL = process.env.BASE_URL || "https://teubot.onrender.com";
 
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
@@ -21,38 +21,8 @@ async function sendMessage(chatId, text) {
       chat_id: chatId,
       text,
       parse_mode: "Markdown",
-      disable_web_page_preview: true,
     }),
   });
-}
-
-async function gerarPagamento(chatId, plano) {
-  const planos = {
-    VIP7: { label: "VIP 7 DIAS", valor: 12.9 },
-    MENSAL: { label: "MENSAL + BÔNUS", valor: 19.9 },
-    VIP3: { label: "VIP 3 MESES", valor: 24.9 },
-    VITAL: { label: "VITAL + CHAT COMIGO", valor: 30.9 },
-  };
-
-  const selected = planos[plano];
-  if (!selected) return null;
-
-  const wiinRes = await fetch("https://api.wiinpay.com.br/payment/create", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: WIINPAY_API_KEY,
-      value: selected.valor,
-      name: `cliente_${chatId}`,
-      email: `carolzinha_${chatId}@botgostoso.com`,
-      description: selected.label,
-      webhook_url: `${BASE_URL}/webhook-wiinpay`,
-      metadata: { chat_id: String(chatId), plan: plano, secret: WEBHOOK_SECRET },
-    }),
-  });
-
-  const data = await wiinRes.json();
-  return data?.pix?.link || data?.pix?.copiaecola || null;
 }
 
 async function askCarolzinha(message) {
@@ -67,7 +37,15 @@ async function askCarolzinha(message) {
       messages: [
         {
           role: "system",
-          content: `Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é excitar, provocar e induzir o lead a digitar /comprar. Seja curta, direta, cheia de tesão e use emojis safados.`,
+          content: `
+Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é excitar, provocar e induzir o lead a digitar /comprar. 
+Seja curta, direta, cheia de tesão e use emojis safados.
+
+Exemplos:
+- "Quer me ver sem nada, gostoso? Digita /comprar 😘🔥"
+- "Cai dentro, vai resistir ao proibido? 😈 /comprar"
+- "Já tô molhadinha só de imaginar você olhando 😳... digita /comprar"
+          `,
         },
         { role: "user", content: message },
       ],
@@ -83,43 +61,116 @@ async function askCarolzinha(message) {
 
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
-  const chatId = message?.chat?.id;
-  const text = message?.text?.trim();
-  if (!chatId || !text) return res.sendStatus(200);
+  const callback = req.body?.callback_query;
 
-  if (text === "/comprar") {
-    const planos = ["VIP7", "MENSAL", "VIP3", "VITAL"];
-    const links = await Promise.all(
-      planos.map((plano) => gerarPagamento(chatId, plano))
-    );
+  const planos = {
+    VIP7: { label: "VIP 7 DIAS", valor: 12.9 },
+    MENSAL: { label: "MENSAL + BÔNUS", valor: 19.9 },
+    VIP3: { label: "VIP 3 MESES", valor: 24.9 },
+    VITAL: { label: "VITAL + CHAT COMIGO", valor: 30.9 },
+  };
 
-    const resposta = `🔥 Escolhe teu plano VIP, amorzinho:
+  if (callback) {
+    const chatId = callback.from.id;
+    const plano = callback.data;
+    const selected = planos[plano];
 
-🔞 *VIP 7 DIAS* - R$12,90  
-👉 [Pagar agora](${links[0]})
+    if (!selected) return res.sendStatus(200);
 
-🔞 *MENSAL + BÔNUS* - R$19,90  
-👉 [Pagar agora](${links[1]})
+    const wiinRes = await fetch("https://api.wiinpay.com.br/payment/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: WIINPAY_API_KEY,
+        value: selected.valor,
+        name: `cliente_${chatId}`,
+        email: `carolzinha_${chatId}@botgostoso.com`,
+        description: selected.label,
+        webhook_url: `${BASE_URL}/webhook-wiinpay`,
+        metadata: { chat_id: String(chatId), plan: plano, secret: WEBHOOK_SECRET },
+      }),
+    });
 
-🔞 *VIP 3 MESES* - R$24,90  
-👉 [Pagar agora](${links[2]})
+    const wiinData = await wiinRes.json();
 
-💬 *VITAL + CHAT COMIGO* - R$30,90  
-👉 [Pagar agora](${links[3]})
+    if (wiinData?.qr_code) {
+      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\
+\```\n${wiinData.qr_code}\n\```\n\nAssim que cair, te mando tudinho 😈`;
+      await sendMessage(chatId, mensagem);
+    } else {
+      await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
+    }
 
-Tô molhadinha só de ver você aqui 😈`;
-
-    await sendMessage(chatId, resposta);
     return res.sendStatus(200);
   }
 
-  if (message.from?.is_bot) return res.sendStatus(200);
+  if (message?.text === "/comprar") {
+    const chatId = message.chat.id;
 
-  const comandos = ["/start", "/comprar"];
-  if (comandos.includes(text)) return res.sendStatus(200);
+    await fetch(`${TELEGRAM_API}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: "🔥 Escolhe teu plano VIP, amorzinho:",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔞 VIP 7 DIAS - R$12,90", callback_data: "VIP7" }],
+            [{ text: "🔞 MENSAL + BÔNUS - R$19,90", callback_data: "MENSAL" }],
+            [{ text: "🔞 VIP 3 MESES - R$24,90", callback_data: "VIP3" }],
+            [{ text: "💬 VITAL + CHAT COMIGO - R$30,90", callback_data: "VITAL" }],
+          ],
+        },
+      }),
+    });
 
-  const reply = await askCarolzinha(text);
-  await sendMessage(chatId, reply);
+    return res.sendStatus(200);
+  }
+
+  if (message?.text && message.chat?.id) {
+    const chatId = message.chat.id;
+    const text = message.text.toLowerCase().trim();
+
+    if (message.from?.is_bot) return res.sendStatus(200);
+    const comandos = ["/start", "/comprar"];
+    if (comandos.includes(text)) return res.sendStatus(200);
+
+    const palavras = text.split(/\s+/);
+    const planosPorTexto = {
+      "7": "VIP7",
+      "7dias": "VIP7",
+      "7 dias": "VIP7",
+      "mensal": "MENSAL",
+      "3": "VIP3",
+      "3meses": "VIP3",
+      "3 meses": "VIP3",
+      "vital": "VITAL",
+      "vitalício": "VITAL",
+    };
+
+    let planoDetectado = null;
+    for (const palavra of palavras) {
+      for (const chave in planosPorTexto) {
+        if (palavra.includes(chave)) {
+          planoDetectado = planosPorTexto[chave];
+          break;
+        }
+      }
+      if (planoDetectado) break;
+    }
+
+    if (planoDetectado) {
+      req.body.callback_query = {
+        from: { id: chatId },
+        data: planoDetectado,
+      };
+      return app._router.handle(req, res);
+    }
+
+    const reply = await askCarolzinha(text);
+    await sendMessage(chatId, reply);
+  }
+
   res.sendStatus(200);
 });
 
@@ -127,8 +178,7 @@ app.post("/webhook-wiinpay", async (req, res) => {
   const body = req.body;
   const metadata = body?.metadata || {};
 
-  if (metadata.secret !== WEBHOOK_SECRET)
-    return res.status(401).send("Acesso negado");
+  if (metadata.secret !== WEBHOOK_SECRET) return res.status(401).send("Acesso negado");
 
   if (["pago", "aprovado"].includes(body.status)) {
     const chatId = metadata.chat_id;
