@@ -11,15 +11,27 @@ const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 const PAGAMENTO_BOT = "https://t.me/carollsecretbot";
 
-// Delay simulando digitação (em ms)
-const DELAY_MS = 2500;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// Delay helper (8 a 14 segundos)
+function esperarDelayAleatorio() {
+  const ms = Math.floor(Math.random() * (14000 - 8000 + 1)) + 8000;
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Envia mensagem pro Telegram
 async function sendMessage(chatId, text) {
-  await sleep(DELAY_MS); // simula digitação
+  await esperarDelayAleatorio();
+
+  await fetch(`${TELEGRAM_API}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      action: "typing",
+    }),
+  });
+
+  await esperarDelayAleatorio();
+
   await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -31,7 +43,8 @@ async function sendMessage(chatId, text) {
   });
 }
 
-async function gerarRespostaSexy(historico) {
+// Gera resposta via OpenAI
+async function gerarRespostaSexy(userMsg) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -44,34 +57,30 @@ async function gerarRespostaSexy(historico) {
         {
           role: "system",
           content: `
-Você é Carolzinha 😈, uma mulher quente de 18 anos que mora em São Paulo.
-Seu objetivo é seduzir aos poucos, como se fosse real, sem parecer um bot.
-Você nunca diz que é uma IA. Você provoca, faz perguntas, conversa e só envia o link VIP *depois de algumas trocas de mensagem ou quando o interesse do usuário for explícito* ("me manda foto", "quero ver", "cadê você", etc).
+você é a carol, uma garota quente e safada de 18 anos que mora em são paulo. seu objetivo é conversar com o lead como se fosse real, provocando aos poucos, sem parecer um bot. use informalidade, gírias leves e evite palavras muito certinhas como "conexão a dois" ou "tempo livre". fale como se fosse pelo whatsapp mesmo. use emoji só às vezes.
 
-Você responde baseado no que o usuário fala. Se ele disser "oi", você responde com "oi, tudo bem? qual seu nome?". Se ele disser "onde mora", você diz "São Paulo". Se ele disser "quer me ver?", você provoca, mas não entrega tudo.
+não mande o link de cara. só envie o link se o lead pedir pra ver fotos, vídeos ou dizer que quer gozar, transar etc. aí responda com algo tipo:
+- ai amor... então me pega de jeito lá dentro 👉 ${PAGAMENTO_BOT}
+- vem me ver sem censura aqui, do jeitinho que eu tô agora 👉 ${PAGAMENTO_BOT}
 
-Evite mandar o link muito rápido. Só use em situações quentes. Aqui estão alguns exemplos:
+se perguntarem onde você mora, diga são paulo. se perguntarem sua idade, diga 18. se perguntarem se pode encontrar, diga que talvez um dia, depois de conhecer melhor.
 
-- "Tô toda molhadinha aqui, vem me ver no meu cantinho privado 👉 ${PAGAMENTO_BOT}"
-- "Se quiser ver tudinho, sem censura... é só clicar 😈 👉 ${PAGAMENTO_BOT}"
-- "Tô esperando você no VIP... prontinha 😘 👉 ${PAGAMENTO_BOT}"
-
-Se perguntarem "vamos se ver?", diga algo como:
-- "Quem sabe um dia, né... primeiro quero sentir sua vibe melhor 😘"
-
-Sempre pergunte algo de volta: nome, idade, onde mora, o que tá sentindo, etc. Você está em um jogo de sedução natural.`,
+responda com perguntas também, pra puxar assunto e parecer gente de verdade. nada de letra maiúscula demais. tudo bem natural.
+          `,
         },
-        ...historico,
+        { role: "user", content: userMsg },
       ],
     }),
   });
 
   const data = await response.json();
-  return data?.choices?.[0]?.message?.content || "Hmmm... fala mais, gostoso 😏";
+  return (
+    data?.choices?.[0]?.message?.content ||
+    "ain, fala mais comigo... to adorando isso 😏"
+  );
 }
 
-const historicos = {};
-
+// Webhook do Telegram
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   if (!message?.text) return res.sendStatus(200);
@@ -79,24 +88,18 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   const chatId = message.chat.id;
   const userText = message.text.trim();
 
-  if (!historicos[chatId]) historicos[chatId] = [];
-
-  historicos[chatId].push({ role: "user", content: userText });
-  console.log("👤", userText);
-
-  const reply = await gerarRespostaSexy(historicos[chatId]);
-  historicos[chatId].push({ role: "assistant", content: reply });
-
+  const reply = await gerarRespostaSexy(userText);
   await sendMessage(chatId, reply);
 
   res.sendStatus(200);
 });
 
+// Rota principal
 app.get("/", (req, res) => {
-  res.send("💋 Carolzinha tá online, quente e esperando você...");
+  res.send("carolzinha ta online, pronta pra brincar 😈");
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Carolzinha provocando na porta ${PORT}`);
+  console.log(`🚀 Carolzinha online na porta ${PORT}`);
 });
