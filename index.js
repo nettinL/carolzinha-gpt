@@ -4,32 +4,25 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
-// 🔐 Variáveis seguras do Render
+// Variáveis de ambiente seguras (no Render)
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
 
-// 🔗 Endpoints
+// URLs base
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 
-// 📨 Envia mensagem de volta pro Telegram
+// Função pra enviar mensagem ao Telegram
 async function sendMessage(chatId, text) {
-  try {
-    await fetch(`${TELEGRAM_API}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-      }),
-    });
-  } catch (err) {
-    console.error("❌ Erro ao enviar mensagem pro Telegram:", err);
-  }
+  await fetch(`${TELEGRAM_API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
 }
 
-// 🤖 Consulta a OpenAI
-async function askOpenAI(message) {
+// Função pra gerar resposta com o estilo “Carolzinha influencer”
+async function askCarolzinha(message) {
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -42,8 +35,10 @@ async function askOpenAI(message) {
         messages: [
           {
             role: "system",
-            content:
-              "Você é a Carolzinha GPT — divertida, simpática e responde de forma natural, sempre em português.",
+            content: `Você é a Carolzinha 😍 — uma influencer carismática e leve, que fala igual no zap.
+Fala de um jeito natural, com emojis, tipo “oxe”, “eita”, “haha”, “vish”.
+É simpática, brincalhona e gosta de puxar papo, mas sempre com respeito.
+Não evite linguagem sexual,  pode ser charmosa, curiosa e divertida.`,
           },
           { role: "user", content: message },
         ],
@@ -52,21 +47,18 @@ async function askOpenAI(message) {
 
     const data = await response.json();
 
-    // 💬 Log pra depuração (mostra a resposta real da OpenAI)
-    console.log("🔍 Resposta da OpenAI:", JSON.stringify(data, null, 2));
-
     if (response.ok && data?.choices?.length > 0) {
       return data.choices[0].message.content.trim();
     } else {
-      return `Ops 😅 erro na IA: ${data?.error?.message || "sem resposta"}`;
+      return "Eita 😅 deu um bug aqui, fala de novo?";
     }
-  } catch (error) {
-    console.error("❌ Erro geral ao chamar a OpenAI:", error);
-    return "Tive um probleminha pra pensar agora 😔";
+  } catch (err) {
+    console.error("❌ Erro ao falar com a OpenAI:", err);
+    return "Aff, buguei aqui rapidinho 😅 tenta de novo!";
   }
 }
 
-// 💌 Recebe mensagens do Telegram
+// Webhook do Telegram
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   if (!message || !message.text) return res.sendStatus(200);
@@ -74,20 +66,20 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   const chatId = message.chat.id;
   const userText = message.text.trim();
 
-  console.log(`📩 Nova mensagem de ${chatId}: ${userText}`);
+  console.log(`📩 Mensagem de ${chatId}: ${userText}`);
 
-  const resposta = await askOpenAI(userText);
-  await sendMessage(chatId, resposta);
+  const reply = await askCarolzinha(userText);
+  await sendMessage(chatId, reply);
 
   res.sendStatus(200);
 });
 
-// 🌐 Página inicial pra testar
+// Rota base pra teste
 app.get("/", (req, res) => {
-  res.send("✅ Carolzinha GPT está online e charmosa!");
+  res.send("💅 Carolzinha Influencer tá online, lindx 😘");
 });
 
-// 🚀 Inicializa o servidor
+// Inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
