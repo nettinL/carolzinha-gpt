@@ -1,4 +1,4 @@
-// index.js COMPLETO — Carolzinha GPT + Integração com WiinPay (corrigido FINAL)
+// index.js COMPLETO — Carolzinha GPT + Integração com WiinPay (CRASE FECHADA ✅)
 
 import express from "express";
 import fetch from "node-fetch";
