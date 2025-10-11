@@ -7,7 +7,7 @@ app.use(express.json());
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "elias123";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "segredo123";
 const BASE_URL = process.env.BASE_URL || "https://carolzinha-gpt.onrender.com";
 
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
@@ -45,7 +45,7 @@ Exemplos:
 - "Quer me ver sem nada, gostoso? Digita /comprar 😘🔥"
 - "Cai dentro, vai resistir ao proibido? 😈 /comprar"
 - "Já tô molhadinha só de imaginar você olhando 😳... digita /comprar"
-          `,
+        `,
         },
         { role: "user", content: message },
       ],
@@ -96,12 +96,16 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     });
 
     const wiinData = await wiinRes.json();
+    console.log("🔍 Dados recebidos da WiinPay:", wiinData); // <-- IMPORTANTE
 
-    if (wiinData?.qr_code) {
-      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\
-\
-${wiinData.qr_code}\n\
-\nAssim que cair, te mando tudinho 😈`;
+    const codigoPix =
+      wiinData?.pix?.copiaecola ||
+      wiinData?.qr_code ||
+      wiinData?.copiaecola ||
+      wiinData?.pix_code;
+
+    if (codigoPix) {
+      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${codigoPix}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
       await sendMessage(chatId, mensagem);
     } else {
       await sendMessage(
@@ -148,14 +152,13 @@ ${wiinData.qr_code}\n\
 
 app.post("/webhook-wiinpay", async (req, res) => {
   const body = req.body;
-  const metadata = body?.metadata || body?.metadados || {}; // aceita os dois formatos
+  const metadata = body?.metadata || {};
 
-  if (metadata.secret !== WEBHOOK_SECRET && metadata.segredo !== WEBHOOK_SECRET) {
+  if (metadata.secret !== WEBHOOK_SECRET)
     return res.status(401).send("Acesso negado");
-  }
 
   if (["pago", "aprovado"].includes(body.status)) {
-    const chatId = metadata.chat_id || metadata.id_do_chat;
+    const chatId = metadata.chat_id;
     await sendMessage(
       chatId,
       `💖 Aiiiinnn amorrr... o Pix caiu aqui 😍 Toma aqui o conteúdo proibido:\n\n🔗 t.me/grupo_vip_das_safadas`
