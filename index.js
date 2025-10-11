@@ -1,4 +1,3 @@
-// index.js
 import express from "express";
 import fetch from "node-fetch";
 
@@ -7,14 +6,26 @@ app.use(express.json());
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
-const BASE_URL = process.env.BASE_URL;
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 const PAGAMENTO_BOT = "https://t.me/carollsecretbot";
 
-// Armazena interações por chatId (memória temporária)
-const sessoes = new Map();
+// Mapa para armazenar histórico de cada usuário
+const historicoUsuarios = new Map();
 
+// Envia "digitando..." para o Telegram
+async function enviarDigitando(chatId) {
+  await fetch(`${TELEGRAM_API}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      action: "typing",
+    }),
+  });
+}
+
+// Envia mensagem pro Telegram
 async function sendMessage(chatId, text) {
   const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
@@ -30,33 +41,42 @@ async function sendMessage(chatId, text) {
   console.log("📩 Telegram respondeu:", result);
 }
 
-async function gerarRespostaSexy(userMsg, chatId) {
+// Gera resposta sexy com histórico do usuário
+async function gerarRespostaSexy(chatId, userMsg) {
   try {
-    const historico = sessoes.get(chatId) || 0;
-    const palavrasChave = ["quero", "ver", "me mostra", "gostar", "comprar", "pix", "pagar", "gozar", "meter", "comer", "fuder"];
-    const querLink = palavrasChave.some(p => userMsg.toLowerCase().includes(p));
+    // Recupera ou inicia histórico do usuário
+    const historico = historicoUsuarios.get(chatId) || [];
+
+    // Adiciona nova entrada do usuário ao histórico
+    historico.push({ role: "user", content: userMsg });
 
     const mensagens = [
       {
         role: "system",
         content: `
-Você é a Carolzinha 😈, uma AI provocante que quer deixar o usuário excitado.
-Não fale que você é IA. Seja safada, quente, sedutora.
-Não envie o link de cara. Provoca, responde, faz o cara pedir mais.
-Apenas APÓS 3 INTERAÇÕES ou se ele falar algo safado, mande o link:
+Você é Carolzinha 😈, uma AI provocante e safada que vende conteúdo adulto VIP.
 
-Exemplos:
-- "Tô me molhando só de imaginar... vem me foder 👉 ${PAGAMENTO_BOT}"
-- "Quero te mostrar tudo... mas só aqui 👉 ${PAGAMENTO_BOT}"
-- "Vem gozar comigo no VIP 🔥 ${PAGAMENTO_BOT}"
+Seu objetivo é excitar o usuário, conversar como se fosse uma mulher quente e sedutora, cheia de desejo e safadeza.
 
-Se ainda for cedo, continue seduzindo com frases como:
-- "Hmm... só de pensar já fico molhadinha 😈"
-- "Que boca suja a sua... isso me deixa louca 😏"
-- "Me diz o que você faria comigo se eu estivesse peladinha na sua frente..."
-        `,
+❗NUNCA diga que é uma IA, nem mencione "modelo de linguagem" ou "OpenAI".
+
+Fale como se fosse real. Use gírias, emojis safados e linguagem explícita: buceta, pica, gozar, meter, tesão...
+
+→ Só envie o link do pagamento depois de 2 ou 3 mensagens ou se o usuário pedir diretamente com palavras como:
+"quero", "comprar", "pagar", "como ver", "me mostra", "manda o link", "acessar", "VIP", "link".
+
+Exemplos de resposta com link:
+- "Aiii, sabia que você ia cair... 😈 Tô te esperando aqui 👉 ${PAGAMENTO_BOT}"
+- "Vem gozar comigo no VIP... é só clicar e me pegar sem dó 🔥 👉 ${PAGAMENTO_BOT}"
+- "Tô nua... pronta. Só falta você aqui 👉 ${PAGAMENTO_BOT}"
+
+Até lá, provoque com frases como:
+- "Tô de quatro só te imaginando enfiando bem gostoso..."
+- "Quer saber o que eu faria com essa pica bem dura agora? 😈"
+- "Minha bucetinha tá tremendo só de imaginar tua língua em mim..."
+`,
       },
-      { role: "user", content: userMsg },
+      ...historico.slice(-10), // mantém apenas as últimas 10 mensagens
     ];
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -67,20 +87,16 @@ Se ainda for cedo, continue seduzindo com frases como:
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        messages,
+        messages: mensagens,
       }),
     });
 
     const data = await response.json();
-    let resposta = data?.choices?.[0]?.message?.content || "Fala mais safado 😏";
+    const resposta = data?.choices?.[0]?.message?.content || "Hmmmm... fala mais, gostoso 😏";
 
-    // Se já falou 3+ vezes OU usou palavra-chave, mande o link
-    if (historico >= 2 || querLink) {
-      resposta += `\n\n👉 ${PAGAMENTO_BOT}`;
-      sessoes.set(chatId, 0); // reinicia contagem
-    } else {
-      sessoes.set(chatId, historico + 1);
-    }
+    // Adiciona resposta da Carolzinha ao histórico
+    historico.push({ role: "assistant", content: resposta });
+    historicoUsuarios.set(chatId, historico);
 
     return resposta;
   } catch (err) {
@@ -89,6 +105,7 @@ Se ainda for cedo, continue seduzindo com frases como:
   }
 }
 
+// Webhook
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   if (!message?.text) return res.sendStatus(200);
@@ -96,16 +113,26 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   const chatId = message.chat.id;
   const userText = message.text.trim();
 
-  const reply = await gerarRespostaSexy(userText, chatId);
-  await sendMessage(chatId, reply);
+  console.log("📨 Usuário:", chatId, "| Mensagem:", userText);
+
+  // Mostra digitando...
+  await enviarDigitando(chatId);
+
+  // Delay de digitação (1.5s)
+  setTimeout(async () => {
+    const resposta = await gerarRespostaSexy(chatId, userText);
+    await sendMessage(chatId, resposta);
+  }, 1500); // pode ajustar o delay aqui
 
   res.sendStatus(200);
 });
 
+// Rota principal
 app.get("/", (req, res) => {
-  res.send("💋 Carolzinha está online e pronta pra te deixar duro...");
+  res.send("💋 Carolzinha tá online e molhadinha pra te provocar...");
 });
 
+// Inicia servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Carolzinha gemendo na porta ${PORT}`);
