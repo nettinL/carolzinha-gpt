@@ -98,9 +98,12 @@ app.post(WEBHOOK_PATH, async (req, res) => {
 
     const wiinData = await wiinRes.json();
 
-    // 💡 CORRIGIDO: usando o campo correto "qr_code"
     if (wiinData?.qr_code) {
-      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.qr_code}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
+      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\
+\`\`\`
+${wiinData.qr_code}
+\`\`\`
+\nAssim que cair, te mando tudinho 😈`;
       await sendMessage(chatId, mensagem);
     } else {
       await sendMessage(
@@ -136,13 +139,19 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     return res.sendStatus(200);
   }
 
-  // Resposta padrão da Carolzinha (modo safadinha)
-  const chatId = message?.chat?.id;
-  const text = message?.text?.trim();
-  if (!chatId || !text) return res.sendStatus(200);
+  // Resposta da Carolzinha para mensagens normais
+  if (message?.text && message.chat?.id) {
+    const chatId = message.chat.id;
+    const text = message.text.trim();
 
-  const reply = await askCarolzinha(text);
-  await sendMessage(chatId, reply);
+    if (message.from?.is_bot) return res.sendStatus(200);
+
+    const comandos = ["/start", "/comprar"];
+    if (comandos.includes(text)) return res.sendStatus(200);
+
+    const reply = await askCarolzinha(text);
+    await sendMessage(chatId, reply);
+  }
 
   res.sendStatus(200);
 });
