@@ -17,53 +17,57 @@ async function sendMessage(chatId, text) {
   await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" })
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "Markdown",
+    }),
   });
 }
 
 async function askCarolzinha(message) {
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `Você é a Carolzinha 😈 — uma acompanhante virtual adulta que vende conteúdos exclusivos, provoca e incentiva o lead a comprar. Sempre que possível, induza o cliente a digitar /comprar para ver os pacotes. Seja direta, sensual e sempre oferecendo os planos.`
-          },
-          { role: "user", content: message },
-        ],
-      }),
-    });
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENAI_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `
+Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é deixar o lead excitado, curioso e induzir ele a comprar os pacotes. Sempre direcione pra usar o comando /comprar. Seja ousada, fale como se tivesse com tesão. Use emojis e gatilhos de desejo. Exemplo:
 
-    const data = await response.json();
-    return data?.choices?.[0]?.message?.content?.trim() || "Buguei toda 😅 repete aí, vai!";
-  } catch (err) {
-    console.error("❌ Erro com OpenAI:", err);
-    return "Tive um bugzinho aqui 😓 tenta dnv!";
-  }
+"Quer ver mais do que eu tô escondendo, gostoso? Então digita /comprar e vem pegar seu pacote 😏🔥"
+        `,
+        },
+        { role: "user", content: message },
+      ],
+    }),
+  });
+
+  const data = await response.json();
+  return (
+    data?.choices?.[0]?.message?.content ||
+    "Buguei aqui, amorzinho 😅 repete pra mim..."
+  );
 }
 
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   const callback = req.body?.callback_query;
 
-  // 👉 BOTÃO CLICADO
   if (callback) {
     const chatId = callback.from.id;
     const plano = callback.data;
-    console.log("Botão clicado:", plano);
 
     const planos = {
-      VIP7: { label: "VIP 7 DIAS", valor: 12.90 },
-      MENSAL: { label: "MENSAL + BÔNUS", valor: 19.90 },
-      VIP3: { label: "VIP 3 MESES", valor: 24.90 },
-      VITAL: { label: "VITAL + CHAT COMIGO", valor: 30.90 }
+      VIP7: { label: "VIP 7 DIAS", valor: 12.9 },
+      MENSAL: { label: "MENSAL + BÔNUS", valor: 19.9 },
+      VIP3: { label: "VIP 3 MESES", valor: 24.9 },
+      VITAL: { label: "VITAL + CHAT COMIGO", valor: 30.9 },
     };
 
     const selected = planos[plano];
@@ -76,15 +80,15 @@ app.post(WEBHOOK_PATH, async (req, res) => {
         api_key: WIINPAY_API_KEY,
         value: selected.valor,
         name: `cliente_${chatId}`,
-        email: `carolzinha_${chatId}@botdotesao.com`,
+        email: `carolzinha_${chatId}@botgostoso.com`,
         description: selected.label,
         webhook_url: `${BASE_URL}/webhook-wiinpay`,
         metadata: {
           chat_id: String(chatId),
           plan: plano,
-          secret: WEBHOOK_SECRET
-        }
-      })
+          secret: WEBHOOK_SECRET,
+        },
+      }),
     });
 
     const wiinData = await wiinRes.json();
@@ -93,13 +97,15 @@ app.post(WEBHOOK_PATH, async (req, res) => {
       const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.pix.copiaecola}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
       await sendMessage(chatId, mensagem);
     } else {
-      await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
+      await sendMessage(
+        chatId,
+        "Eita... bugou a cobrança 😓 tenta de novo mais tarde."
+      );
     }
 
     return res.sendStatus(200);
   }
 
-  // 👉 COMANDO /COMPRAR
   if (message?.text === "/comprar") {
     const chatId = message.chat.id;
 
@@ -114,46 +120,45 @@ app.post(WEBHOOK_PATH, async (req, res) => {
             [{ text: "🔞 VIP 7 DIAS - R$12,90", callback_data: "VIP7" }],
             [{ text: "🔞 MENSAL + BÔNUS - R$19,90", callback_data: "MENSAL" }],
             [{ text: "🔞 VIP 3 MESES - R$24,90", callback_data: "VIP3" }],
-            [{ text: "💬 VITAL + CHAT COMIGO - R$30,90", callback_data: "VITAL" }]
-          ]
-        }
-      })
+            [{ text: "💬 VITAL + CHAT COMIGO - R$30,90", callback_data: "VITAL" }],
+          ],
+        },
+      }),
     });
 
     return res.sendStatus(200);
   }
 
-  // 👉 OUTRAS MENSAGENS (GPT)
   const chatId = message?.chat?.id;
   const text = message?.text?.trim();
   if (!chatId || !text) return res.sendStatus(200);
 
   const reply = await askCarolzinha(text);
   await sendMessage(chatId, reply);
+
   res.sendStatus(200);
 });
 
-// 👉 Webhook do Pix
 app.post("/webhook-wiinpay", async (req, res) => {
   const body = req.body;
   const metadata = body?.metadata || {};
 
-  if (metadata.secret !== WEBHOOK_SECRET) return res.status(401).send("acesso negado");
+  if (metadata.secret !== WEBHOOK_SECRET)
+    return res.status(401).send("Acesso negado");
 
-  if (body.status === "pago" || body.status === "aprovado") {
+  if (["pago", "aprovado"].includes(body.status)) {
     const chatId = metadata.chat_id;
-    console.log(`✅ Pix confirmado do chat ${chatId}`);
-
-    await sendMessage(chatId, `💖 Aiiiinnn amorrr... o Pix caiu aqui 😍 Toma aqui o conteúdo proibido:
-
-🔗 t.me/grupo_vip_das_safadas`);
+    await sendMessage(
+      chatId,
+      `💖 Aiiiinnn amorrr... o Pix caiu aqui 😍 Toma aqui o conteúdo proibido:\n\n🔗 t.me/grupo_vip_das_safadas`
+    );
   }
 
   res.sendStatus(200);
 });
 
 app.get("/", (req, res) => {
-  res.send("💅 Carolzinha está online e molhadinha 😘");
+  res.send("💅 Carolzinha tá online, molhadinha e pronta 😘");
 });
 
 const PORT = process.env.PORT || 3000;
