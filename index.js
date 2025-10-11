@@ -1,4 +1,3 @@
-// index.js
 import express from "express";
 import fetch from "node-fetch";
 
@@ -39,7 +38,7 @@ async function askCarolzinha(message) {
         {
           role: "system",
           content: `
-Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é excitar, provocar e induzir o lead a digitar /comprar. 
+Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é excitar, provocar e induzir o lead a digitar /comprar ou dizer o nome do plano. 
 Seja curta, direta, cheia de tesão e use emojis safados.
 
 Exemplos:
@@ -60,91 +59,96 @@ Exemplos:
   );
 }
 
+const planos = {
+  VIP7: { label: "VIP 7 DIAS", valor: 12.9, keywords: ["vip 7", "7 dias"] },
+  MENSAL: { label: "MENSAL + BÔNUS", valor: 19.9, keywords: ["mensal", "30 dias"] },
+  VIP3: { label: "VIP 3 MESES", valor: 24.9, keywords: ["3 meses", "trimestre"] },
+  VITAL: { label: "VITAL + CHAT COMIGO", valor: 30.9, keywords: ["vital", "chat comigo"] },
+};
+
+function detectarPlano(texto) {
+  const normalized = texto.toLowerCase();
+  for (const [chave, plano] of Object.entries(planos)) {
+    if (plano.keywords.some(k => normalized.includes(k))) {
+      return chave;
+    }
+  }
+  return null;
+}
+
+async function gerarCobranca(chatId, planoKey) {
+  const selected = planos[planoKey];
+  const wiinRes = await fetch("https://api.wiinpay.com.br/payment/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: WIINPAY_API_KEY,
+      value: selected.valor,
+      name: `cliente_${chatId}`,
+      email: `carolzinha_${chatId}@botgostoso.com`,
+      description: selected.label,
+      webhook_url: `${BASE_URL}/webhook-wiinpay`,
+      metadata: {
+        chat_id: String(chatId),
+        plan: planoKey,
+        secret: WEBHOOK_SECRET,
+      },
+    }),
+  });
+
+  const wiinData = await wiinRes.json();
+
+  if (wiinData?.qr_code) {
+    const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.qr_code}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
+    await sendMessage(chatId, mensagem);
+  } else {
+    await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
+  }
+}
+
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   const callback = req.body?.callback_query;
 
+  // Botão clicado (opcional)
   if (callback) {
     const chatId = callback.from.id;
     const plano = callback.data;
-
-    const planos = {
-      VIP7: { label: "VIP 7 DIAS", valor: 12.9 },
-      MENSAL: { label: "MENSAL + BÔNUS", valor: 19.9 },
-      VIP3: { label: "VIP 3 MESES", valor: 24.9 },
-      VITAL: { label: "VITAL + CHAT COMIGO", valor: 30.9 },
-    };
-
-    const selected = planos[plano];
-    if (!selected) return res.sendStatus(200);
-
-    const wiinRes = await fetch("https://api.wiinpay.com.br/payment/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: WIINPAY_API_KEY,
-        value: selected.valor,
-        name: `cliente_${chatId}`,
-        email: `carolzinha_${chatId}@botgostoso.com`,
-        description: selected.label,
-        webhook_url: `${BASE_URL}/webhook-wiinpay`,
-        metadata: {
-          chat_id: String(chatId),
-          plan: plano,
-          secret: WEBHOOK_SECRET,
-        },
-      }),
-    });
-
-    const wiinData = await wiinRes.json();
-
-    if (wiinData?.qr_code) {
-      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\
-\\`\`\`\n${wiinData.qr_code}\n\\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
-      await sendMessage(chatId, mensagem);
-    } else {
-      await sendMessage(
-        chatId,
-        "Eita... bugou a cobrança 😓 tenta de novo mais tarde."
-      );
+    if (planos[plano]) {
+      await gerarCobranca(chatId, plano);
     }
-
     return res.sendStatus(200);
   }
 
-  if (message?.text === "/comprar") {
-    const chatId = message.chat.id;
+  if (!message?.text || !message.chat?.id) return res.sendStatus(200);
 
-    await fetch(`${TELEGRAM_API}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: "🔥 Escolhe teu plano VIP, amorzinho:",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🔞 VIP 7 DIAS - R$12,90", callback_data: "VIP7" }],
-            [{ text: "🔞 MENSAL + BÔNUS - R$19,90", callback_data: "MENSAL" }],
-            [{ text: "🔞 VIP 3 MESES - R$24,90", callback_data: "VIP3" }],
-            [{ text: "💬 VITAL + CHAT COMIGO - R$30,90", callback_data: "VITAL" }],
-          ],
-        },
-      }),
-    });
+  const chatId = message.chat.id;
+  const texto = message.text.toLowerCase().trim();
 
+  // Se for /comprar
+  if (texto === "/comprar") {
+    const opcoes = Object.entries(planos)
+      .map(([_, p]) => `🔞 *${p.label}* - R$${p.valor.toFixed(2)}\n👉 Digita: *${p.keywords[0]}*`)
+      .join("\n\n");
+    await sendMessage(chatId, `🔥 Escolhe teu plano VIP, amorzinho:\n\n${opcoes}`);
     return res.sendStatus(200);
   }
 
-  const chatId = message?.chat?.id;
-  const text = message?.text?.trim();
-  if (!chatId || !text) return res.sendStatus(200);
+  // Detectar plano digitado diretamente
+  const planoDetectado = detectarPlano(texto);
+  if (planoDetectado) {
+    await gerarCobranca(chatId, planoDetectado);
+    return res.sendStatus(200);
+  }
 
-  const reply = await askCarolzinha(text);
-  await sendMessage(chatId, reply);
+  // Caso contrário, responde como Carolzinha
+  const resposta = await askCarolzinha(texto);
+  await sendMessage(chatId, resposta);
 
   res.sendStatus(200);
 });
 
+// Webhook de confirmação de pagamento
 app.post("/webhook-wiinpay", async (req, res) => {
   const body = req.body;
   const metadata = body?.metadata || {};
@@ -163,6 +167,7 @@ app.post("/webhook-wiinpay", async (req, res) => {
   res.sendStatus(200);
 });
 
+// Página raiz
 app.get("/", (req, res) => {
   res.send("💅 Carolzinha tá online, molhadinha e pronta 😘");
 });
