@@ -1,7 +1,7 @@
 {
   "name": "carolzinha-gpt",
   "version": "1.0.0",
-  "description": "Bot Telegram + OpenAI + Pix",
+  "description": "Bot safadinha + OpenAI + WiinPay",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -10,5 +10,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
