@@ -1,4 +1,4 @@
-// index.js COMPLETO — Carolzinha GPT + Integração com WiinPay (CRASE FECHADA ✅)
+// index.js — Carolzinha GPT + Integração WiinPay (com mensagem corrigida ✅)
 
 import express from "express";
 import fetch from "node-fetch";
@@ -90,7 +90,7 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const wiinData = await wiinRes.json();
 
     if (wiinData?.pix?.copiaecola) {
-  const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!
+      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!
 
 Copia e cola aí, amor:
 
@@ -100,9 +100,9 @@ ${wiinData.pix.copiaecola}
 
 Assim que cair, te mando tudinho 😈`;
 
-await sendMessage(chatId, mensagem);
-
-      await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
+      await sendMessage(chatId, mensagem);
+    } else {
+      await sendMessage(chatId, "Eita... bugou a cobrança 🤮 tenta de novo mais tarde.");
     }
 
     return res.sendStatus(200);
