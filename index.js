@@ -6,7 +6,7 @@ app.use(express.json());
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
-const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
+const WIINPAY_API_KEY = process.env.CHAVE_API_WIINPAY; // Corrigido aqui 👈
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "segredo123";
 const BASE_URL = process.env.BASE_URL || "https://teubot.onrender.com";
 
@@ -38,7 +38,7 @@ async function askCarolzinha(message) {
         {
           role: "system",
           content: `
-Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é deixar o lead excitado, curioso e induzir ele a comprar os pacotes. Sempre direcione pra usar o comando /comprar. Seja ousada, fale como se tivesse com tesão. Use emojis e gatilhos de desejo. Exemplo:
+Você é a Carolzinha 😈, uma AI provocante que vende conteúdo adulto. Sua missão é deixar o lead excitado, curioso e induzir ele a comprar os pacotes. Sempre direcione pra usar o comando /comprar. Seja ousada, fale como se tivesse com tesão. Use emojis e gatilhos de desejo. Frases curtas. Exemplo:
 
 "Quer ver mais do que eu tô escondendo, gostoso? Então digita /comprar e vem pegar seu pacote 😏🔥"
         `,
@@ -73,6 +73,13 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const selected = planos[plano];
     if (!selected) return res.sendStatus(200);
 
+    // 🪵 Log de debug:
+    console.log("💳 Criando cobrança com:", {
+      api_key: WIINPAY_API_KEY,
+      value: selected.valor,
+      name: `cliente_${chatId}`,
+    });
+
     const wiinRes = await fetch("https://api.wiinpay.com.br/payment/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -92,6 +99,9 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     });
 
     const wiinData = await wiinRes.json();
+
+    // 🪵 Log da resposta da API WiinPay
+    console.log("📦 Resposta WiinPay:", wiinData);
 
     if (wiinData?.pix?.copiaecola) {
       const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.pix.copiaecola}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
