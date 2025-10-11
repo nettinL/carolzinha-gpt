@@ -1,14 +1,15 @@
+// index.js
 import express from "express";
 import fetch from "node-fetch";
 
 const app = express();
 app.use(express.json());
 
-const TELEGRAM_TOKEN = "SEU_TOKEN_DO_BOT_AQUI"; // <-- COLE AQUI
-const OPENAI_KEY = "SUA_OPENAI_KEY_AQUI"; // <-- COLE AQUI
-const WIINPAY_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NTU2MTEzNjV9.WB5T902_w88906WZr39AI-nekSIPyq0Y1qvrH_8_F6I";
-const WEBHOOK_SECRET = "segredo123";
-const BASE_URL = "https://carolzinha-gpt.onrender.com";
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const OPENAI_KEY = process.env.OPENAI_KEY;
+const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "segredo123";
+const BASE_URL = process.env.BASE_URL || "https://carolzinha-gpt.onrender.com";
 
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
@@ -45,7 +46,7 @@ Exemplos:
 - "Quer me ver sem nada, gostoso? Digita /comprar 😘🔥"
 - "Cai dentro, vai resistir ao proibido? 😈 /comprar"
 - "Já tô molhadinha só de imaginar você olhando 😳... digita /comprar"
-        `,
+          `,
         },
         { role: "user", content: message },
       ],
@@ -98,7 +99,8 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const wiinData = await wiinRes.json();
 
     if (wiinData?.qr_code) {
-      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.qr_code}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
+      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\
+\\`\`\`\n${wiinData.qr_code}\n\\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
       await sendMessage(chatId, mensagem);
     } else {
       await sendMessage(
