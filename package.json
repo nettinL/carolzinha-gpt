@@ -1,7 +1,7 @@
 {
   "name": "carolzinha-gpt",
   "version": "1.0.0",
-  "description": "Bot Telegram + OpenAI",
+  "description": "Bot Telegram + OpenAI + Pix",
   "main": "index.js",
   "type": "module",
   "scripts": {
