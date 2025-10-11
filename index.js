@@ -1,5 +1,3 @@
-// index.js — Carolzinha GPT + Integração WiinPay (com mensagem corrigida ✅)
-
 import express from "express";
 import fetch from "node-fetch";
 
@@ -36,7 +34,7 @@ async function askCarolzinha(message) {
         messages: [
           {
             role: "system",
-            content: `Você é a Carolzinha 😈 — modelo adulta que provoca, vende packs e faz o cliente abrir o pix sem vergonha.`
+            content: `Você é a Carolzinha 😈 — uma acompanhante virtual adulta que vende conteúdos exclusivos, provoca e incentiva o lead a comprar. Sempre que possível, induza o cliente a digitar /comprar para ver os pacotes. Seja direta, sensual e sempre oferecendo os planos.`
           },
           { role: "user", content: message },
         ],
@@ -55,9 +53,11 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   const callback = req.body?.callback_query;
 
+  // 👉 BOTÃO CLICADO
   if (callback) {
     const chatId = callback.from.id;
     const plano = callback.data;
+    console.log("Botão clicado:", plano);
 
     const planos = {
       VIP7: { label: "VIP 7 DIAS", valor: 12.90 },
@@ -90,24 +90,16 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const wiinData = await wiinRes.json();
 
     if (wiinData?.pix?.copiaecola) {
-      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!
-
-Copia e cola aí, amor:
-
-\`\`\`
-${wiinData.pix.copiaecola}
-\`\`\`
-
-Assim que cair, te mando tudinho 😈`;
-
+      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.pix.copiaecola}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`;
       await sendMessage(chatId, mensagem);
     } else {
-      await sendMessage(chatId, "Eita... bugou a cobrança 🤮 tenta de novo mais tarde.");
+      await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
     }
 
     return res.sendStatus(200);
   }
 
+  // 👉 COMANDO /COMPRAR
   if (message?.text === "/comprar") {
     const chatId = message.chat.id;
 
@@ -131,6 +123,7 @@ Assim que cair, te mando tudinho 😈`;
     return res.sendStatus(200);
   }
 
+  // 👉 OUTRAS MENSAGENS (GPT)
   const chatId = message?.chat?.id;
   const text = message?.text?.trim();
   if (!chatId || !text) return res.sendStatus(200);
@@ -140,6 +133,7 @@ Assim que cair, te mando tudinho 😈`;
   res.sendStatus(200);
 });
 
+// 👉 Webhook do Pix
 app.post("/webhook-wiinpay", async (req, res) => {
   const body = req.body;
   const metadata = body?.metadata || {};
