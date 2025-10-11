@@ -90,15 +90,7 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const wiinData = await wiinRes.json();
 
     if (wiinData?.pix?.copiaecola) {
-await sendMessage(chatId, `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\`\`\`\n${wiinData.pix.copiaecola}\n\`\`\`\n\nAssim que cair, te mando tudinho 😈`);
-
-Copia e cola aí, amor:
-
-\\`\\`\\`
-${wiinData.pix.copiaecola}
-\\`\\`\\`
-
-Assim que cair, te mando tudinho 😈`);
+      await sendMessage(chatId, `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\\`\\`\\`\n${wiinData.pix.copiaecola}\n\\`\\`\\`\n\nAssim que cair, te mando tudinho 😈`);
     } else {
       await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
     }
