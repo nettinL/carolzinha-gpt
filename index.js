@@ -4,22 +4,29 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
-// 🔑 Teu token do Telegram
-const TOKEN = "8453148218:AAGBbAfLoM-6z0kS4mi2QIjZmFOYCmYGmoI";
+// Variáveis de ambiente seguras
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const OPENAI_KEY = process.env.OPENAI_KEY;
 
-// 🔑 Tua chave da OpenAI
-const OPENAI_KEY = "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";
+// Endpoint do Telegram
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
+const WEBHOOK_PATH = "/webhook";
 
-// 📩 Endpoint que o Telegram vai chamar
-app.post("/webhook", async (req, res) => {
-  const message = req.body.message;
-  if (!message || !message.text) return res.sendStatus(200);
+// Função para enviar mensagem ao Telegram
+async function sendMessage(chatId, text) {
+  await fetch(`${TELEGRAM_API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+    }),
+  });
+}
 
-  const userMessage = message.text;
-  console.log("💬 Mensagem recebida:", userMessage);
-
+// Função para gerar resposta da OpenAI
+async function askOpenAI(message) {
   try {
-    // 🔮 Envia mensagem pra OpenAI (ChatGPT)
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -28,39 +35,44 @@ app.post("/webhook", async (req, res) => {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Você é a Carolzinha 😈 — uma atendente divertida, brincalhona e simpática. Sempre responda com emojis e um tom leve, carinhoso e divertido.",
-          },
-          { role: "user", content: userMessage },
-        ],
+        messages: [{ role: "user", content: message }],
       }),
     });
 
     const data = await response.json();
-
-    const reply =
-      data.choices?.[0]?.message?.content ||
-      "Ops 😅 não consegui pensar em nada agora!";
-
-    // 💌 Envia resposta de volta pro Telegram
-    await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: message.chat.id,
-        text: reply,
-      }),
-    });
-
-    console.log("✅ Resposta enviada!");
-    res.sendStatus(200);
-  } catch (err) {
-    console.error("❌ Erro ao responder:", err);
-    res.sendStatus(500);
+    return (
+      data?.choices?.[0]?.message?.content ||
+      "Desculpa, não entendi o que você quis dizer 😅"
+    );
+  } catch (error) {
+    console.error("Erro ao chamar a OpenAI:", error);
+    return "Ocorreu um erro ao falar com a IA 😔";
   }
+}
+
+// Endpoint do webhook do Telegram
+app.post(WEBHOOK_PATH, async (req, res) => {
+  const message = req.body?.message;
+  if (!message || !message.text) return res.sendStatus(200);
+
+  const chatId = message.chat.id;
+  const userText = message.text.trim();
+
+  console.log("📩 Mensagem recebida:", userText);
+
+  const resposta = await askOpenAI(userText);
+  await sendMessage(chatId, resposta);
+
+  res.sendStatus(200);
 });
 
-app.listen(3000, () => console.log("✅ Servidor rodando na porta 3000"));
+// Rota padrão (pra testar se tá online)
+app.get("/", (req, res) => {
+  res.send("✅ Servidor da Carolzinha GPT está online!");
+});
+
+// Inicializa servidor
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+});
