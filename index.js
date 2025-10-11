@@ -7,7 +7,7 @@ app.use(express.json());
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "segredo123";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "elias123";
 const BASE_URL = process.env.BASE_URL || "https://carolzinha-gpt.onrender.com";
 
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
