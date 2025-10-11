@@ -4,13 +4,15 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
+// Variáveis de ambiente corretas
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
-const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
+const BASE_URL = process.env.BASE_URL;
 const WEBHOOK_PATH = "/webhook";
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const PAGAMENTO_BOT = "https://t.me/carollsecretbot";
 
-// Envia mensagem pro Telegram
+// Função para enviar mensagem pro Telegram
 async function sendMessage(chatId, text) {
   const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
@@ -23,30 +25,11 @@ async function sendMessage(chatId, text) {
   });
 
   const result = await res.json();
-  console.log("📩 Enviado pro Telegram:", result);
+  console.log("📩 Telegram respondeu:", result);
 }
 
-// Gera resposta safada com base na mensagem
+// Função para gerar resposta sexy com OpenAI
 async function gerarRespostaSexy(userMsg) {
-  const palavrasChave = ["quero", "comprar", "ver", "me manda", "link", "conteúdo", "vip", "mostra", "me mostra", "gostar"];
-  const msgLower = userMsg.toLowerCase();
-
-  const querComprar = palavrasChave.some((palavra) => msgLower.includes(palavra));
-
-  if (querComprar) {
-    // Resposta direta com link
-    const frasesQuentes = [
-      `Aiii, sabia que você ia cair... 😈 Tô te esperando aqui 👉 ${PAGAMENTO_BOT}`,
-      `Vem gozar comigo no VIP... é só clicar e me pegar sem dó 🔥 👉 ${PAGAMENTO_BOT}`,
-      `Tô nua... pronta... Só falta você 👉 ${PAGAMENTO_BOT}`,
-      `Minha bucetinha tá molhada te esperando 😛 Clica logo 👉 ${PAGAMENTO_BOT}`,
-      `Avisa quando gozar, viu? 👉 ${PAGAMENTO_BOT}`,
-    ];
-    const fraseAleatoria = frasesQuentes[Math.floor(Math.random() * frasesQuentes.length)];
-    return fraseAleatoria;
-  }
-
-  // Caso não tenha intenção de compra, segue a sedução via OpenAI
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -60,14 +43,22 @@ async function gerarRespostaSexy(userMsg) {
           {
             role: "system",
             content: `
-Você é a Carolzinha 😈, uma AI provocante, tarada e cheia de desejo. 
-Você só fala sacanagem e instiga o usuário até ele pedir pra ver mais.
+Você é Carolzinha 😈, uma AI provocante e safada que vende conteúdo adulto VIP. 
+Seu único objetivo é deixar o usuário excitado e induzi-lo a acessar o link do bot de pagamento quando mostrar interesse.
 
-- Nunca diga que é uma IA.
-- Use emojis e palavras explícitas como: buceta, pica, gozar, gemer, fod*-me.
-- Não diga que é conteúdo pago.
-- Quando o usuário pedir pra ver algo ou mostrar interesse, envie o link: ${PAGAMENTO_BOT}
-`,
+❗Nunca mencione "sou uma IA" ou "OpenAI".
+
+Use emojis safados, fale como uma mulher quente, cheia de desejo. Seja curta, direta e altamente provocativa.
+
+Se o usuário digitar algo como "quero", "comprar", "ver", "gostar", "me mostra", você manda o link do bot de pagamento com uma frase MUITO sedutora.
+
+Exemplos de resposta com link:
+- "Aiii, sabia que você ia cair... 😈 Tô te esperando aqui 👉 ${PAGAMENTO_BOT}"
+- "Vem gozar comigo no VIP... é só clicar e me pegar sem dó 🔥 👉 ${PAGAMENTO_BOT}"
+- "Tô nua... pronta. Só falta você aqui 👉 ${PAGAMENTO_BOT}"
+
+NUNCA diga que o conteúdo é pago. Só fale como se o link fosse o portal do prazer.
+          `,
           },
           { role: "user", content: userMsg },
         ],
@@ -80,13 +71,13 @@ Você só fala sacanagem e instiga o usuário até ele pedir pra ver mais.
     );
   } catch (err) {
     console.error("❌ Erro com OpenAI:", err);
-    return "Aiiin... bugou aqui, amor. Tenta me provocar de novo 😘";
+    return "Aiiinn... deu uma bugadinha aqui, amor. Tenta de novo 😘";
   }
 }
 
-// Rota do Webhook
+// Webhook para receber mensagens do Telegram
 app.post(WEBHOOK_PATH, async (req, res) => {
-  console.log("📥 Mensagem recebida:", JSON.stringify(req.body));
+  console.log("🚨 Webhook recebido:", JSON.stringify(req.body));
 
   const message = req.body?.message;
   if (!message?.text) return res.sendStatus(200);
@@ -94,19 +85,21 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   const chatId = message.chat.id;
   const userText = message.text.trim();
 
+  console.log("👤 Mensagem do usuário:", userText);
+
   const reply = await gerarRespostaSexy(userText);
   await sendMessage(chatId, reply);
 
   res.sendStatus(200);
 });
 
-// Rota principal
+// Página raiz
 app.get("/", (req, res) => {
   res.send("💋 Carolzinha tá online e molhadinha pra te provocar...");
 });
 
-// Inicia servidor
+// Inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Carol gemendo na porta ${PORT}`);
+  console.log(`🚀 Carolzinha gemendo na porta ${PORT}`);
 });
