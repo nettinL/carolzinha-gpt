@@ -1,4 +1,4 @@
-// index.js COMPLETO — Carolzinha GPT + Integração com WiinPay
+// index.js COMPLETO — Carolzinha GPT + Integração com WiinPay (corrigido)
 
 import express from "express";
 import fetch from "node-fetch";
@@ -13,11 +13,9 @@ const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "segredo123";
 const BASE_URL = process.env.BASE_URL || "https://teubot.onrender.com";
 
-// URLs base
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 
-// Função pra enviar mensagem no Telegram
 async function sendMessage(chatId, text) {
   await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
@@ -26,7 +24,6 @@ async function sendMessage(chatId, text) {
   });
 }
 
-// Função da IA Carolzinha GPT
 async function askCarolzinha(message) {
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -55,7 +52,6 @@ async function askCarolzinha(message) {
   }
 }
 
-// Webhook do Telegram
 app.post(WEBHOOK_PATH, async (req, res) => {
   const message = req.body?.message;
   const callback = req.body?.callback_query;
@@ -95,9 +91,7 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const wiinData = await wiinRes.json();
 
     if (wiinData?.pix?.copiaecola) {
-      await sendMessage(chatId, `💸 Pix pro plano *${selected.label}* gerado!
-\nCopia e cola aí, amor:
-\n\\`\\`\\`\n${wiinData.pix.copiaecola}\n\\`\\`\\`\n\nAssim que cair, te mando tudinho 😈`);
+      await sendMessage(chatId, `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\\`\\`\\`\n${wiinData.pix.copiaecola}\n\\`\\`\\`\n\nAssim que cair, te mando tudinho 😈`);
     } else {
       await sendMessage(chatId, "Eita... bugou a cobrança 😓 tenta de novo mais tarde.");
     }
@@ -137,7 +131,6 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   res.sendStatus(200);
 });
 
-// Webhook de pagamento WiinPay
 app.post("/webhook-wiinpay", async (req, res) => {
   const body = req.body;
   const metadata = body?.metadata || {};
@@ -148,20 +141,16 @@ app.post("/webhook-wiinpay", async (req, res) => {
     const chatId = metadata.chat_id;
     console.log(`✅ Pix confirmado do chat ${chatId}`);
 
-    await sendMessage(chatId, `💖 Aiiiinnn amorrr... o Pix caiu aqui 😍 Toma aqui o conteúdo proibido:
-
-🔗 t.me/grupo_vip_das_safadas`);
+    await sendMessage(chatId, `💖 Aiiiinnn amorrr... o Pix caiu aqui 😍 Toma aqui o conteúdo proibido:\n\n🔗 t.me/grupo_vip_das_safadas`);
   }
 
   res.sendStatus(200);
 });
 
-// Teste
 app.get("/", (req, res) => {
   res.send("💅 Carolzinha está online e molhadinha 😘");
 });
 
-// Starta
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
