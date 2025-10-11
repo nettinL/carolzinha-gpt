@@ -90,11 +90,19 @@ app.post(WEBHOOK_PATH, async (req, res) => {
     const wiinData = await wiinRes.json();
 
     if (wiinData?.qr_code) {
-      const mensagem = `🐝 Pix pro plano *${selected.label}* gerado!\n\nCopia e cola aí, amor:\n\n\
-\\`
+      const mensagem = `🐝 Pix gerado com sucesso para o plano *${selected.label}*!
+
+Copia e cola aí, amor:
+
+\
+\
+\
 ${wiinData.qr_code}
-\\`
-\nAssim que cair, te mando tudinho 😈`;
+\
+\
+\
+Assim que cair, te mando tudinho 😈`;
+
       await sendMessage(chatId, mensagem);
     } else {
       await sendMessage(
