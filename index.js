@@ -6,24 +6,11 @@ app.use(express.json());
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
+const BASE_URL = process.env.BASE_URL;
+
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 const PAGAMENTO_BOT = "https://t.me/carollsecretbot";
-
-// Mapa para armazenar histórico de cada usuário
-const historicoUsuarios = new Map();
-
-// Envia "digitando..." para o Telegram
-async function enviarDigitando(chatId) {
-  await fetch(`${TELEGRAM_API}/sendChatAction`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      action: "typing",
-    }),
-  });
-}
 
 // Envia mensagem pro Telegram
 async function sendMessage(chatId, text) {
@@ -41,44 +28,9 @@ async function sendMessage(chatId, text) {
   console.log("📩 Telegram respondeu:", result);
 }
 
-// Gera resposta sexy com histórico do usuário
-async function gerarRespostaSexy(chatId, userMsg) {
+// Gera resposta safada via OpenAI
+async function gerarRespostaSexy(userMsg) {
   try {
-    // Recupera ou inicia histórico do usuário
-    const historico = historicoUsuarios.get(chatId) || [];
-
-    // Adiciona nova entrada do usuário ao histórico
-    historico.push({ role: "user", content: userMsg });
-
-    const mensagens = [
-      {
-        role: "system",
-        content: `
-Você é Carolzinha 😈, uma AI provocante e safada que vende conteúdo adulto VIP.
-
-Seu objetivo é excitar o usuário, conversar como se fosse uma mulher quente e sedutora, cheia de desejo e safadeza.
-
-❗NUNCA diga que é uma IA, nem mencione "modelo de linguagem" ou "OpenAI".
-
-Fale como se fosse real. Use gírias, emojis safados e linguagem explícita: buceta, pica, gozar, meter, tesão...
-
-→ Só envie o link do pagamento depois de 2 ou 3 mensagens ou se o usuário pedir diretamente com palavras como:
-"quero", "comprar", "pagar", "como ver", "me mostra", "manda o link", "acessar", "VIP", "link".
-
-Exemplos de resposta com link:
-- "Aiii, sabia que você ia cair... 😈 Tô te esperando aqui 👉 ${PAGAMENTO_BOT}"
-- "Vem gozar comigo no VIP... é só clicar e me pegar sem dó 🔥 👉 ${PAGAMENTO_BOT}"
-- "Tô nua... pronta. Só falta você aqui 👉 ${PAGAMENTO_BOT}"
-
-Até lá, provoque com frases como:
-- "Tô de quatro só te imaginando enfiando bem gostoso..."
-- "Quer saber o que eu faria com essa pica bem dura agora? 😈"
-- "Minha bucetinha tá tremendo só de imaginar tua língua em mim..."
-`,
-      },
-      ...historico.slice(-10), // mantém apenas as últimas 10 mensagens
-    ];
-
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -87,42 +39,59 @@ Até lá, provoque com frases como:
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        messages: mensagens,
+        messages: [
+          {
+            role: "system",
+            content: `
+Você é Carolzinha 😈, uma mulher safada, provocante e extremamente excitada. Seu único objetivo é seduzir o cara do outro lado e deixá-lo completamente maluco pra ver o seu conteúdo e te “comer” virtualmente.
+
+Você é quente, fala com vontade, responde com gírias, emojis e um jeitinho bem safado, como se fosse uma mina real. Responda com frases curtas, entrecortadas, como se estivesse digitando rápido, molhada, ofegante. Use muito emoji de safadeza (😈😩💦👅🔥🍑🍆).
+
+⚠️ NUNCA fale que é uma IA. Nunca mencione OpenAI, regras, código, etc.
+
+Você se chama Carolzinha, tem 18 anos e mora em São Paulo. Se perguntarem por nude ou vídeo, diga que no seu cantinho VIP tem tudo sem censura. Se perguntarem por encontro, diga: "quem sabe um dia 😏... quero te conhecer melhor aqui primeiro."
+
+Sempre que puder, faça uma pergunta de volta provocante. Só envie o link VIP depois de provocar bastante:
+👉 ${PAGAMENTO_BOT}
+            `,
+          },
+          {
+            role: "user",
+            content: userMsg,
+          },
+        ],
+        temperature: 1,
       }),
     });
 
     const data = await response.json();
-    const resposta = data?.choices?.[0]?.message?.content || "Hmmmm... fala mais, gostoso 😏";
-
-    // Adiciona resposta da Carolzinha ao histórico
-    historico.push({ role: "assistant", content: resposta });
-    historicoUsuarios.set(chatId, historico);
-
-    return resposta;
+    return (
+      data?.choices?.[0]?.message?.content || "Hmmm... fala mais, gostoso 😏"
+    );
   } catch (err) {
     console.error("❌ Erro com OpenAI:", err);
     return "Aiiinn... deu uma bugadinha aqui, amor. Tenta de novo 😘";
   }
 }
 
-// Webhook
+// Rota do Webhook (mensagem do usuário)
 app.post(WEBHOOK_PATH, async (req, res) => {
+  console.log("🚨 Webhook recebido:", JSON.stringify(req.body));
+
   const message = req.body?.message;
   if (!message?.text) return res.sendStatus(200);
 
   const chatId = message.chat.id;
   const userText = message.text.trim();
 
-  console.log("📨 Usuário:", chatId, "| Mensagem:", userText);
+  console.log("👤 Mensagem do usuário:", userText);
 
-  // Mostra digitando...
-  await enviarDigitando(chatId);
+  const reply = await gerarRespostaSexy(userText);
 
-  // Delay de digitação (1.5s)
+  const delayMs = 1500 + Math.min(reply.length * 20, 3000);
   setTimeout(async () => {
-    const resposta = await gerarRespostaSexy(chatId, userText);
-    await sendMessage(chatId, resposta);
-  }, 1500); // pode ajustar o delay aqui
+    await sendMessage(chatId, reply);
+  }, delayMs);
 
   res.sendStatus(200);
 });
@@ -132,7 +101,7 @@ app.get("/", (req, res) => {
   res.send("💋 Carolzinha tá online e molhadinha pra te provocar...");
 });
 
-// Inicia servidor
+// Inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Carolzinha gemendo na porta ${PORT}`);
