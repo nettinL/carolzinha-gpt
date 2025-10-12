@@ -1,137 +1,94 @@
 // index.js
-import express from "express";
-import bodyParser from "body-parser";
-import fetch from "node-fetch";
+import express from 'express';
+import fetch from 'node-fetch';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json());
 
-// VARIÁVEIS DE AMBIENTE
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const BASE_URL = process.env.BASE_URL;
-const API_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
-const LINK_ONLYFANS = "https://t.me/carollsecretbot";
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
+const OPENAI_KEY = process.env.OPENAI_KEY;
 
-app.use(bodyParser.json());
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// CONTROLE DE CONTEXTO
-const userState = {};
+const historicoMensagens = {}; // Armazena historico por usuário
 
-// FUNÇÃO DE DELAY
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
-// FUNÇÃO PARA ENVIAR MENSAGEM
-const sendMessage = async (chatId, text) => {
-  await delay(8000 + Math.random() * 6000); // 8 a 14 segundos
-  await fetch(`${API_URL}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+async function enviarMensagem(chatId, texto) {
+  await delay(8000 + Math.random() * 6000); // Delay entre 8 a 14s
+  await fetch(`${TELEGRAM_API}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action: 'typing' })
   });
-};
 
-const mensagensIniciais = [
-  "Oi, tudo bem? Qual seu nome? 😘",
-  "Prazer! Eu sou a Carol. O que você gosta de fazer no tempo livre?",
-  "Hmm, me conta mais sobre você... Mora onde?",
-];
+  await delay(2000 + Math.random() * 3000); // Delay digitando
 
-const respostasPersonalizadas = [
-  {
-    match: ["peito", "seio"],
-    resposta: [
-      "Gosta dos meus peitos, é? 😏 E o que você mais faria com eles?",
-      "Seus olhos foram direto pros meus seios? Danado... 😈",
-    ],
-  },
-  {
-    match: ["bunda", "raba"],
-    resposta: [
-      "Adora uma bunda grande? E o que você faria com ela? 😈",
-      "Sabia que você ia notar minha bunda... e ela não é só bonita, viu? 😏",
-    ],
-  },
-  {
-    match: ["conteúdo", "onlyfans", "vender", "nudes"],
-    resposta: [
-      `Aii, sabia que você ia cair... 😈 Tô te esperando aqui 👉 ${LINK_ONLYFANS}`,
-    ],
-    tag: "link",
-  },
-  {
-    match: ["idade", "quantos anos"],
-    resposta: [
-      "Tenho 18 anos, novinha ainda... 😘",
-    ],
-  },
-  {
-    match: ["onde mora", "cidade"],
-    resposta: [
-      "Sou de São Paulo, e você?",
-    ],
-  },
-  {
-    match: ["encontrar", "ver pessoalmente", "real"],
-    resposta: [
-      "Quem sabe um dia, hein... Antes a gente precisa se conhecer melhor, né? 😉",
-    ],
-  },
-];
+  await fetch(`${TELEGRAM_API}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: texto })
+  });
+}
 
-// FUNÇÃO PRINCIPAL
-app.post("/webhook", async (req, res) => {
-  const msg = req.body.message;
-  if (!msg || !msg.text) return res.sendStatus(200);
+async function gerarRespostaSexy(historico) {
+  const mensagens = historico.map(m => {
+    return `${m.from === 'user' ? 'Usuário' : 'Carol'}: ${m.text}`;
+  }).join('\n');
+
+  const prompt = `Você é a Carol, uma mulher de 18 anos de São Paulo, sensual e envolvente, que conversa como uma pessoa real com um toque provocante. Evite repetir perguntas. Use linguagem natural e varie os emojis. Seja progressiva na conversa.
+
+Histórico:
+${mensagens}
+Carol:`;
+
+  const resposta = await fetch('https://api.openai.com/v1/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'text-davinci-003',
+      prompt,
+      max_tokens: 100,
+      temperature: 0.85
+    })
+  });
+
+  const data = await resposta.json();
+  return data.choices?.[0]?.text?.trim();
+}
+
+app.post('/webhook', async (req, res) => {
+  const msg = req.body?.message;
+  if (!msg || !msg.text || msg.from?.is_bot) return res.sendStatus(200);
 
   const chatId = msg.chat.id;
-  const texto = msg.text.toLowerCase();
-  const usuario = userState[chatId] || { nome: null, linkEnviado: false, etapa: 0 };
+  const userMsg = msg.text.trim();
 
-  if (texto.startsWith("/start")) {
-    await sendMessage(chatId, "Oi, amor... Eu sou a Carolzinha 😘 Vamos conversar?");
-    userState[chatId] = usuario;
-    return res.sendStatus(200);
+  if (!historicoMensagens[chatId]) historicoMensagens[chatId] = [];
+
+  historicoMensagens[chatId].push({ from: 'user', text: userMsg });
+  if (historicoMensagens[chatId].length > 10) {
+    historicoMensagens[chatId].shift(); // Mantém último 10
   }
 
-  // Se ainda não respondeu nome
-  if (!usuario.nome) {
-    usuario.nome = texto;
-    await sendMessage(chatId, `Prazer, ${usuario.nome}! Me conta mais de você ✨`);
-    userState[chatId] = usuario;
-    return res.sendStatus(200);
-  }
+  try {
+    const resposta = await gerarRespostaSexy(historicoMensagens[chatId]);
 
-  // Verifica respostas personalizadas
-  for (const regra of respostasPersonalizadas) {
-    if (regra.tag === "link" && usuario.linkEnviado) continue;
-    if (regra.match.some((palavra) => texto.includes(palavra))) {
-      const resp = regra.resposta[Math.floor(Math.random() * regra.resposta.length)];
-      await sendMessage(chatId, resp);
-      if (regra.tag === "link") usuario.linkEnviado = true;
-      userState[chatId] = usuario;
-      return res.sendStatus(200);
+    if (resposta) {
+      historicoMensagens[chatId].push({ from: 'bot', text: resposta });
+      if (historicoMensagens[chatId].length > 10) {
+        historicoMensagens[chatId].shift();
+      }
+      await enviarMensagem(chatId, resposta);
     }
+  } catch (err) {
+    console.error('Erro ao responder:', err);
   }
 
-  // Continua conversa genérica
-  const fallback = [
-    "Sério? Me conta mais então... 😏",
-    "Adorei saber disso! E o que mais?",
-    "Hmmmm, fiquei curiosa agora...",
-    "Gosto de conversar com alguém que sabe o que quer...",
-  ];
-  await sendMessage(chatId, fallback[Math.floor(Math.random() * fallback.length)]);
   res.sendStatus(200);
 });
 
-// SET WEBHOOK
-app.get("/setwebhook", async (req, res) => {
-  const webhookUrl = `${BASE_URL}/webhook`;
-  const r = await fetch(`${API_URL}/setWebhook?url=${webhookUrl}`);
-  const data = await r.json();
-  res.send(data);
-});
-
-app.listen(PORT, () => {
-  console.log(`Bot rodando na porta ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Bot rodando na porta ${PORT}`));
