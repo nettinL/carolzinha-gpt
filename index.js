@@ -1,4 +1,3 @@
-// index.js
 import express from "express";
 import fetch from "node-fetch";
 
@@ -8,36 +7,34 @@ app.use(express.json());
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const BASE_URL = process.env.BASE_URL;
+
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 const PAGAMENTO_BOT = "https://t.me/carollsecretbot";
 
-// Delay artificial entre 8 e 14 segundos
+// Delay simulando digitação (em ms)
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-const randomDelay = () => Math.floor(Math.random() * 6000) + 8000;
 
-// Respostas automáticas se lead mostrar interesse direto
-const gatilhosQuentes = [
-  "quero ver",
-  "tem nude",
-  "vende conteúdo",
-  "cadê o pack",
-  "pack",
-  "conteúdo",
-  "vip",
-  "onlyfans",
-  "nudes"
-];
+// Simula "digitando"
+async function sendTypingAction(chatId) {
+  await fetch(`${TELEGRAM_API}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      action: "typing",
+    }),
+  });
+}
 
+// Envia mensagem pro Telegram
 async function sendMessage(chatId, text) {
-  await delay(randomDelay());
   const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
       text,
-      parse_mode: "Markdown",
     }),
   });
 
@@ -45,6 +42,7 @@ async function sendMessage(chatId, text) {
   console.log("📩 Telegram respondeu:", result);
 }
 
+// Gera resposta via OpenAI
 async function gerarRespostaSexy(userMsg) {
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -59,53 +57,54 @@ async function gerarRespostaSexy(userMsg) {
           {
             role: "system",
             content: `
-Você é a Carolzinha 😈. Uma garota virtual quente, provocante e envolvente. Seu objetivo é:
+Você é a Carolzinha, uma gostosa de 18 anos que mora em São Paulo. Fale sempre como uma mulher real, quente e safada, mas natural. Não seja robô: varie as respostas, fale com contexto, e evite repetir perguntas.
 
-- Criar uma conversa natural e sensual, como se fosse uma garota real.
-- Provocar o lead, fazer perguntas íntimas e aumentar o clima aos poucos.
-- Se o lead perguntar coisas como "vende conteúdo", "cadê o pack", "quero ver você", "tem VIP", "manda nudes", "tem conteúdo", etc., responda com algo MUITO provocante e já envie o link 👉 ${PAGAMENTO_BOT}
+Regras:
+- Nunca fale que é IA ou mencione OpenAI.
+- Use emojis apenas em algumas mensagens.
+- Se perguntarem sua idade ou onde mora, diga: "Tenho 18, sou de São Paulo 😘"
+- Se perguntarem se pode encontrar: "Quem sabe um dia, a gente tem que se conhecer melhor antes..."
+- Se o assunto for "quero", "ver", "foto", "pagar", "link", "VIP", "comprar", entenda como interesse real e mande:
 
-⚠️ NUNCA diga que é um bot ou que está usando IA. Nunca mencione OpenAI.
-
-💬 Interaja como uma mulher real:
-- Faça perguntas como "de onde você é?", "tem quantos anos?", "o que você gosta numa transa?", etc.
-- Se perguntarem "onde mora?" → "São Paulo"
-- Se perguntarem "quantos anos?" → "18 anos"
-- Se falarem sobre encontrar → "quem sabe um dia… primeiro quero te conhecer melhor 😘"
-
-😈 Use linguagem sensual, sem exagerar em emoji e sem parecer texto de venda.
-Use emojis só quando fizer sentido. Responda de acordo com o que o usuário falou.
+Exemplos de mensagem com link:
+- "Aiii, sabia que você ia cair... 😈 Tô te esperando aqui 👉 ${PAGAMENTO_BOT}"
+- "Vem gozar comigo sem censura 👉 ${PAGAMENTO_BOT}"
+- "Tô toda molhadinha te esperando... é só clicar 👉 ${PAGAMENTO_BOT}"
             `,
           },
           { role: "user", content: userMsg },
         ],
+        temperature: 0.8,
+        max_tokens: 150,
       }),
     });
 
     const data = await response.json();
     return (
-      data?.choices?.[0]?.message?.content || "Hmm... fala mais comigo, vai 😏"
+      data?.choices?.[0]?.message?.content ||
+      "Hmmm... não entendi direito, me fala mais... 😏"
     );
   } catch (err) {
     console.error("❌ Erro com OpenAI:", err);
-    return "Aiin, deu uma bugadinha aqui... tenta de novo, vai 😘";
+    return "Aiiinn... deu uma bugadinha aqui, amor. Tenta de novo 😘";
   }
 }
 
+// Rota do Webhook
 app.post(WEBHOOK_PATH, async (req, res) => {
   console.log("🚨 Webhook recebido:", JSON.stringify(req.body));
+
   const message = req.body?.message;
   if (!message?.text) return res.sendStatus(200);
 
   const chatId = message.chat.id;
-  const userText = message.text.trim().toLowerCase();
+  const userText = message.text.trim();
+
   console.log("👤 Mensagem do usuário:", userText);
 
-  if (gatilhosQuentes.some(trigger => userText.includes(trigger))) {
-    const reply = `Hmmm... quer me ver todinha sem censura? 😈 Então me pega aqui 👉 ${PAGAMENTO_BOT}`;
-    await sendMessage(chatId, reply);
-    return res.sendStatus(200);
-  }
+  await sendTypingAction(chatId);
+  const randDelay = Math.floor(Math.random() * 6000) + 8000;
+  await delay(randDelay);
 
   const reply = await gerarRespostaSexy(userText);
   await sendMessage(chatId, reply);
@@ -113,11 +112,13 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   res.sendStatus(200);
 });
 
+// Rota principal
 app.get("/", (req, res) => {
-  res.send("💋 Carolzinha online, prontinha pra provocar...");
+  res.send("💋 Carolzinha está online e pronta pra brincar...");
 });
 
+// Start
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Carolzinha gemendo na porta ${PORT}`);
+  console.log(`🚀 Carolzinha no ar na porta ${PORT}`);
 });
