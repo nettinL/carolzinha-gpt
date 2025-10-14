@@ -1,21 +1,24 @@
 {
-  "name": "carolzinha-gpt",
+  "name": "carolzinha-gpt-bot",
   "version": "1.0.0",
-  "description": "Bot Telegram provocante com conteúdo adulto e pagamentos via WiinPay",
+  "description": "Bot da Carolzinha com integração OpenAI, pagamentos Wiinpay e entrega de conteúdo exclusivo",
   "main": "index.js",
-  "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node src/index.js"
   },
+  "keywords": [
+    "telegram",
+    "bot",
+    "openai",
+    "wiinpay",
+    "chatgpt",
+    "conteudo-adulto"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
   "dependencies": {
     "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
-    "fs": "^0.0.1-security"
-  },
-  "engines": {
-    "node": ">=16.0.0"
-  },
-  "keywords": ["telegram", "bot", "openai", "wiinpay", "conteudo adulto"],
-  "author": "Carolzinha AI",
-  "license": "MIT"
+    "node-fetch": "^3.3.2"
+  }
 }
