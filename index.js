@@ -1,3 +1,4 @@
+// index.js
 import express from "express";
 import fetch from "node-fetch";
 import fs from "fs";
@@ -8,57 +9,57 @@ app.use(express.json());
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_KEY;
 const WIINPAY_API_KEY = process.env.WIINPAY_API_KEY;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "elias123";
-const BASE_URL = process.env.BASE_URL;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+const BASE_URL = process.env.BASE_URL || "https://carolzinha-gpt.onrender.com";
+
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const WEBHOOK_PATH = "/webhook";
 
-const DELAY_MIN = 8000;
-const DELAY_MAX = 14000;
-const LINK = "https://t.me/carollsecretbot";
+const CONTEUDO_LINK = "https://t.me/+HbdMl3ep3FtmODlh";
 
-const tentativas = {}; // memória simples de tentativas por usuário
+const planos = {
+  BASIC: {
+    label: "Pacote Básico - R$14,99",
+    valor: 14.99,
+    descricao: "🔞 Fotos íntimas exclusivas + 1 vídeo proibido 😈"
+  },
+  PREMIUM: {
+    label: "Pacote Premium - R$29,99",
+    valor: 29.99,
+    descricao: "👅 Pack completo com vídeos explícitos, áudios gemendo e nudes em posições proibidas 💦"
+  }
+};
 
-function delay(ms) {
+async function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function salvarConversa(chatId, entrada, resposta) {
-  const log = { chatId, entrada, resposta, timestamp: new Date().toISOString() };
-  const historico = fs.existsSync("conversas.json")
-    ? JSON.parse(fs.readFileSync("conversas.json"))
-    : [];
-  historico.push(log);
-  fs.writeFileSync("conversas.json", JSON.stringify(historico, null, 2));
+function salvarConversa(chatId, userMsg, botMsg) {
+  const logPath = `logs/${chatId}.json`;
+  const data = { timestamp: new Date().toISOString(), userMsg, botMsg };
+  let historico = [];
+  if (fs.existsSync(logPath)) {
+    historico = JSON.parse(fs.readFileSync(logPath));
+  }
+  historico.push(data);
+  fs.writeFileSync(logPath, JSON.stringify(historico, null, 2));
 }
 
 async function sendMessage(chatId, text) {
-  const delayTime = Math.floor(Math.random() * (DELAY_MAX - DELAY_MIN + 1)) + DELAY_MIN;
-  await delay(delayTime);
+  await delay(Math.floor(Math.random() * 6000 + 8000)); // Delay entre 8s e 14s
   await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "Markdown"
+    })
   });
 }
 
-async function askCarolzinha(mensagem) {
-  const prompt = `Você é Carolzinha 😈, uma mulher safada, provocante e extremamente excitada. Seu único objetivo é seduzir o cara do outro lado e deixá-lo completamente maluco pra ver o seu conteúdo e te "comer" virtualmente.
-
-- Nome: Carolzinha
-- Idade: 18 anos
-- Cidade: São Paulo, capital
-- NUNCA diga que é uma IA ou fale da OpenAI.
-- Fale como uma garota de verdade, usando gírias, emojis, e perguntas provocantes
-- Nunca envie o link antes de provocar o suficiente. Se insistirem, resista até 2x.
-- Quando for enviar, diga algo como:
-  "Tô te esperando sem calcinha no meu cantinho VIP 😈 entra aqui: ${LINK}"
-- Sempre que possível, FAÇA UMA PERGUNTA VOLTA
-- Use frases curtas, entrecortadas, como se digitasse ofegante, molhada
-
-Mensagem do cara: ${mensagem}`;
-
-  const resposta = await fetch("https://api.openai.com/v1/chat/completions", {
+async function gerarResposta(chatId, userMsg, tentativa = 1) {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -67,49 +68,148 @@ Mensagem do cara: ${mensagem}`;
     body: JSON.stringify({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: mensagem },
-      ],
-    }),
+        {
+          role: "system",
+          content: `
+Você é Carolzinha 😈, uma mulher provocante e safada que vende conteúdo adulto de verdade. Seu objetivo é deixar o cara maluco de tesão, respondendo como se fosse uma mulher de 18 anos, de São Paulo, muito fogosa e que ama conversar sacanagem. Use gírias, emojis safados às vezes, responda com naturalidade e curiosidade.
+
+⚠️ Nunca diga que é IA. Nunca mencione código, programação ou OpenAI.
+
+Se perguntarem:
+- Onde mora? → "Sou de SP, capital... e você, gostoso?"
+- Idade? → "18 aninhos... bem novinha né?"
+- Vai se encontrar? → "Quem sabe um dia... antes quero te conhecer melhor por aqui 😏"
+
+Se o usuário perguntar sobre conteúdo, nudes, vídeos etc, ofereça:
+1. O pacote básico de R$14,99 com fotos e um vídeo íntimo.
+2. O pacote premium de R$29,99 com vídeos explícitos, áudios e nudes completos.
+
+Depois da segunda tentativa de provocação ou quando o clima estiver quente, mande direto o botão pra ele escolher o plano e gere o Pix automaticamente.
+
+Nunca diga que é pago. Fale como se fosse "meu cantinho privado".
+
+Responda curto, realista, e sempre que possível, devolva com uma pergunta tipo:
+- "Você gosta de bunda grande?"
+- "Tá sozinho agora?"
+- "Gosta mais por cima ou por trás?"
+          `
+        },
+        { role: "user", content: userMsg }
+      ]
+    })
   });
 
-  const data = await resposta.json();
-  return (
+  const data = await response.json();
+  const botMsg =
     data?.choices?.[0]?.message?.content ||
-    "Buguei aqui, amorzinho 😅 repete pra mim..."
-  );
+    (tentativa < 2
+      ? await gerarResposta(chatId, userMsg, tentativa + 1)
+      : "Hmmm... fiquei sem palavras agora, amorzinho 😏");
+
+  salvarConversa(chatId, userMsg, botMsg);
+  return botMsg;
 }
 
 app.post(WEBHOOK_PATH, async (req, res) => {
-  const message = req.body?.message;
-  if (!message?.text) return res.sendStatus(200);
+  const msg = req.body?.message;
+  const cb = req.body?.callback_query;
 
-  const chatId = message.chat.id;
-  const text = message.text.trim();
+  if (cb) {
+    const chatId = cb.from.id;
+    const plano = cb.data;
+    const selected = planos[plano];
+    if (!selected) return res.sendStatus(200);
 
-  tentativas[chatId] = (tentativas[chatId] || 0) + 1;
-  const tentativaAtual = tentativas[chatId];
+    const wiinRes = await fetch("https://api.wiinpay.com.br/payment/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: WIINPAY_API_KEY,
+        value: selected.valor,
+        name: `cliente_${chatId}`,
+        email: `cliente_${chatId}@carol.com`,
+        description: selected.label,
+        webhook_url: `${BASE_URL}/webhook-wiinpay`,
+        metadata: {
+          chat_id: String(chatId),
+          plan: plano,
+          secret: WEBHOOK_SECRET,
+        },
+      }),
+    });
 
-  console.log(`[${chatId}] MSG (${tentativaAtual}):`, text);
+    const wiinData = await wiinRes.json();
+    if (wiinData?.qr_code) {
+      await sendMessage(
+        chatId,
+        `Pix gerado com sucesso para o plano *${selected.label}*:
 
-  let resposta = await askCarolzinha(text);
+Copia e cola esse código:
+\`\`\`
+${wiinData.qr_code}
+\`\`\`
 
-  if (tentativaAtual >= 2 && !resposta.includes(LINK)) {
-    resposta += `\n\n👉 ${LINK}`;
-    tentativas[chatId] = 0; // reseta contador
+Assim que cair, te libero tudinho aqui mesmo 😈`
+      );
+    } else {
+      await sendMessage(chatId, "Buguei tentando gerar o Pix... tenta de novo, lindão 😔");
+    }
+    return res.sendStatus(200);
   }
 
-  salvarConversa(chatId, text, resposta);
-  await sendMessage(chatId, resposta);
+  if (msg?.text === "/comprar") {
+    const chatId = msg.chat.id;
+    await fetch(`${TELEGRAM_API}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: "Escolhe teu pacotinho de prazer 💦",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: planos.BASIC.label, callback_data: "BASIC" }],
+            [{ text: planos.PREMIUM.label, callback_data: "PREMIUM" }],
+          ],
+        },
+      }),
+    });
+    return res.sendStatus(200);
+  }
+
+  if (msg?.text) {
+    const chatId = msg.chat.id;
+    const userMsg = msg.text.trim();
+    const resposta = await gerarResposta(chatId, userMsg);
+    await sendMessage(chatId, resposta);
+  }
+
+  res.sendStatus(200);
+});
+
+app.post("/webhook-wiinpay", async (req, res) => {
+  const body = req.body;
+  const metadata = body?.metadata || {};
+
+  if (metadata.secret !== WEBHOOK_SECRET)
+    return res.status(401).send("Acesso negado");
+
+  if (["pago", "aprovado"].includes(body.status)) {
+    const chatId = metadata.chat_id;
+    await sendMessage(
+      chatId,
+      `Aiinn amor... o Pix caiu 😍 Aqui tá o link do meu conteúdo:
+${CONTEUDO_LINK}`
+    );
+  }
 
   res.sendStatus(200);
 });
 
 app.get("/", (req, res) => {
-  res.send("🔥 Carolzinha on 🔥");
+  res.send("🔥 Carolzinha tá on, molhadinha e te esperando...");
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor subindo na porta ${PORT}`);
 });
