@@ -1,10 +1,7 @@
-// Aviso: este arquivo é apenas um pacote inicial. O código completo e atualizado está na conversa acima.
-// Aqui está o package.json para o projeto Carolzinha GPT com suporte à WiinPay, logs, armazenamento de conversas e dependências corretas.
-
 {
-  "name": "carolzinha-bot",
+  "name": "carolzinha-gpt",
   "version": "1.0.0",
-  "description": "Bot provocante com integração ao Telegram, OpenAI e WiinPay",
+  "description": "Bot safadinha com OpenAI e WiinPay",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -15,15 +12,6 @@
     "node-fetch": "^3.3.2"
   },
   "engines": {
-    "node": ">=18.0.0"
-  },
-  "keywords": [
-    "telegram",
-    "openai",
-    "wiinpay",
-    "bot",
-    "provocante"
-  ],
-  "author": "Elias",
-  "license": "MIT"
+    "node": ">=16.0.0"
+  }
 }
