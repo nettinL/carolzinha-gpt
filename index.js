@@ -1,5 +1,4 @@
 import express from "express";
-import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 
@@ -62,20 +61,31 @@ async function askCarolzinha(message) {
     { role: "user", content: message },
   ];
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_KEY}`,
-    },
-    body: JSON.stringify({ model: "gpt-4o", messages: prompt }),
-  });
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo", // ✅ TROQUEI AQUI FDP
+        messages: prompt,
+      }),
+    });
 
-  const data = await res.json();
-  return (
-    data?.choices?.[0]?.message?.content ||
-    "Buguei aqui, amorzinho 😅 repete pra mim..."
-  );
+    const data = await res.json();
+
+    if (!data?.choices?.[0]?.message?.content) {
+      console.error("Erro na resposta da OpenAI:", data);
+      return "Buguei aqui, amorzinho 😅 repete pra mim...";
+    }
+
+    return data.choices[0].message.content;
+  } catch (err) {
+    console.error("Erro geral:", err);
+    return "Buguei aqui, amorzinho 😅 repete pra mim...";
+  }
 }
 
 app.post(WEBHOOK_PATH, async (req, res) => {
@@ -146,7 +156,6 @@ app.get("/", (req, res) => {
   res.send("💅 Carolzinha online e molhadinha, amor...");
 });
 
-// 🧠 REGISTRA O WEBHOOK AO INICIAR, PORRA
 async function registrarWebhook() {
   const res = await fetch(`${TELEGRAM_API}/setWebhook`, {
     method: "POST",
@@ -167,5 +176,5 @@ async function registrarWebhook() {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log("🔥 Servidor rodando na porta " + PORT);
-  await registrarWebhook(); // 🧠 CHAMANDO A FUNÇÃO
+  await registrarWebhook();
 });
